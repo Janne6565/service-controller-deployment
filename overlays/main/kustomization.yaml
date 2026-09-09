@@ -5,6 +5,7 @@ namespace: service-controller
 resources:
   - ../../base
   - ingress.yaml
+  - authentik.yaml
   - secret.sealed.yaml
 # CI (service-controller-backend) rewrites newTag on push to main; ArgoCD then syncs.
 images:

@@ -1,18 +1,50 @@
+# One host, two routers, because they need different answers to "who may call this".
+#
+#   service-controller         — the admin UI and its API. Behind Authentik forward auth.
+#   service-controller-public  — the machine surface, which has no browser session to offer.
+#
+# A third router for this host, /outpost.goauthentik.io, is published from the authentik namespace
+# (cluster-deployment/infrastructure/authentik-outpost-ingress.yaml) — see the header of
+# authentik.yaml for why it cannot live here.
+#
+# Traefik ranks routers by rule length, so the longer, more specific rules below win over `/` on
+# the same host — no explicit priorities needed.
+#
+# TLS is declared once, on the protected router: cert-manager's ingress-shim only reacts to the
+# annotated Ingress, and Traefik keys its certificate store by SNI, so every router on this host
+# serves the same cert.
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: service-controller
   annotations:
-    # Dedicated per-host certificate via the cert-manager ingress shim, not the shared
-    # multi-domain cert: one host renewing on its own cannot take 30 others down with it.
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # <namespace>-<middleware name>@kubernetescrd — the CRD reference format Traefik expects.
+    traefik.ingress.kubernetes.io/router.middlewares: service-controller-authentik-forward-auth@kubernetescrd
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - service-controller.jannekeipert.de
+      secretName: service-controller-tls
   rules:
     - host: service-controller.jannekeipert.de
       http:
         paths:
-          # One backend for everything: the websocket endpoint (/service_controller) and the
-          # control API share the port. Traefik upgrades websockets without extra annotations.
+          # The admin API. OperatorIdentityFilter additionally refuses anything under /api that
+          # arrives without the outpost's identity header, so losing this middleware fails closed.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: service-controller
+                port:
+                  number: 8080
+          # Everything else is the UI. Until the frontend exists this is still the backend, which
+          # answers the liveness string — swap the service name when service-controller-frontend
+          # ships.
           - path: /
             pathType: Prefix
             backend:
@@ -20,7 +52,56 @@ spec:
                 name: service-controller
                 port:
                   number: 8080
-  tls:
-    - hosts:
-        - service-controller.jannekeipert.de
-      secretName: service-controller-tls
+---
+# No forward-auth middleware on this router, by design. Every path here carries its own, stronger
+# check and none has a browser session to offer:
+#
+#   /service_controller — the agent websocket. The per-agent token is in the URL and the device id
+#                         comes from the credential, not from anything the agent claims.
+#   /execute_action     — a CALLER token, in an Authorization header or a query parameter.
+#   /get_status         — likewise.
+#   /                   — the liveness string, so uptime checks do not need a session.
+#
+# Exact rather than Prefix: these are four endpoints, not four subtrees. /api is deliberately not
+# among them, so the admin API is unreachable from this router at all — a spoofed X-authentik-*
+# header buys nothing here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: service-controller-public
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: service-controller.jannekeipert.de
+      http:
+        paths:
+          - path: /service_controller
+            pathType: Exact
+            backend:
+              service:
+                name: service-controller
+                port:
+                  number: 8080
+          - path: /execute_action
+            pathType: Exact
+            backend:
+              service:
+                name: service-controller
+                port:
+                  number: 8080
+          - path: /get_status
+            pathType: Exact
+            backend:
+              service:
+                name: service-controller
+                port:
+                  number: 8080
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: service-controller
+                port:
+                  number: 8080

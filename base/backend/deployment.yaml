@@ -29,8 +29,15 @@ spec:
           ports:
             - name: http
               containerPort: 8080
-          # Agent token + BCrypt hash of the control password. The app refuses to start without
-          # both, so a missing secret fails loudly instead of opening the command bus.
+          env:
+            - name: SERVICE_CONTROLLER_DB_URL
+              value: jdbc:postgresql://postgres:5432/service_controller
+            - name: SERVICE_CONTROLLER_DB_USER
+              value: service_controller
+            # Used to build the ready-to-paste connection hint shown once when a client is
+            # created, so it has to be the externally reachable URL, not the Service name.
+            - name: SERVICE_CONTROLLER_PUBLIC_BASE_URL
+              value: https://service-controller.jannekeipert.de
           envFrom:
             - secretRef:
                 name: service-controller-secrets
