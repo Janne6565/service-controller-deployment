@@ -10,4 +10,4 @@ resources:
 images:
   - name: ghcr.io/janne6565/service-controller-backend
     newName: ghcr.io/janne6565/service-controller-backend
-    newTag: placeholder
+    newTag: main-017ce6c
