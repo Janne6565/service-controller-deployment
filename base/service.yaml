@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-controller
+  labels:
+    app: service-controller
+spec:
+  selector:
+    app: service-controller
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

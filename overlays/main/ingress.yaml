@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: service-controller
+  annotations:
+    # Dedicated per-host certificate via the cert-manager ingress shim, not the shared
+    # multi-domain cert: one host renewing on its own cannot take 30 others down with it.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: service-controller.jannekeipert.de
+      http:
+        paths:
+          # One backend for everything: the websocket endpoint (/service_controller) and the
+          # control API share the port. Traefik upgrades websockets without extra annotations.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: service-controller
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - service-controller.jannekeipert.de
+      secretName: service-controller-tls

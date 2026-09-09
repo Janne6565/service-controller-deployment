@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: service-controller
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: service-controller
+  source:
+    repoURL: https://github.com/Janne6565/service-controller-deployment
+    targetRevision: main
+    path: overlays/main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: service-controller
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Single environment; everything lives in the `service-controller` namespace.
+namespace: service-controller
+resources:
+  - ../../base
+  - ingress.yaml
+  - secret.sealed.yaml
+# CI (service-controller-backend) rewrites newTag on push to main; ArgoCD then syncs.
+images:
+  - name: ghcr.io/janne6565/service-controller-backend
+    newName: ghcr.io/janne6565/service-controller-backend
+    newTag: placeholder

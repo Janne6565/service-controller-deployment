@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-controller
+spec:
+  # Single replica on purpose. Agents hold a websocket to ONE pod, and the registry of who is
+  # connected lives in that pod's memory; a second replica would answer /execute_action for
+  # agents it cannot see and silently deliver nothing. Scaling out needs a shared bus first.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: service-controller
+  template:
+    metadata:
+      labels:
+        app: service-controller
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: service-controller
+          image: ghcr.io/janne6565/service-controller-backend:placeholder
+          ports:
+            - name: http
+              containerPort: 8080
+          # Agent token + BCrypt hash of the control password. The app refuses to start without
+          # both, so a missing secret fails loudly instead of opening the command bus.
+          envFrom:
+            - secretRef:
+                name: service-controller-secrets
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # Writable /tmp because the root filesystem is read-only (Tomcat work files).
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
