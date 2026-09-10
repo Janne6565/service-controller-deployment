@@ -68,7 +68,9 @@ spec:
 #                         comes from the credential, not from anything the agent claims.
 #   /execute_action     — a CALLER token, in an Authorization header or a query parameter.
 #   /get_status         — likewise.
-#   /                   — the liveness string, so uptime checks do not need a session.
+#   /healthz            — the liveness string, so uptime checks do not need a session. It is
+#                         NOT `/`: two routers on one host claiming the same path let the
+#                         unauthenticated one win, and the SPA was served without a session.
 #
 # Exact rather than Prefix: these are four endpoints, not four subtrees. /api is deliberately not
 # among them, so the admin API is unreachable from this router at all — a spoofed X-authentik-*
@@ -106,7 +108,7 @@ spec:
                 name: service-controller
                 port:
                   number: 8080
-          - path: /
+          - path: /healthz
             pathType: Exact
             backend:
               service:
