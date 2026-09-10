@@ -14,4 +14,4 @@ images:
     newTag: main-40e934a
   - name: ghcr.io/janne6565/service-controller-frontend
     newName: ghcr.io/janne6565/service-controller-frontend
-    newTag: placeholder
+    newTag: main-91aebe7
