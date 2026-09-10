@@ -42,16 +42,24 @@ spec:
                 name: service-controller
                 port:
                   number: 8080
-          # Everything else is the UI. Until the frontend exists this is still the backend, which
-          # answers the liveness string — swap the service name when service-controller-frontend
-          # ships.
-          - path: /
+          # The OpenAPI spec, for `bun gen:api`. Protected: it is a map of the admin API and
+          # there is no reason for it to be readable without a session.
+          - path: /v3/api-docs
             pathType: Prefix
             backend:
               service:
                 name: service-controller
                 port:
                   number: 8080
+          # Everything else is the SPA. Same origin as /api, so the browser sends the outpost's
+          # session cookie with every call and the bundle needs no token of its own.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
 ---
 # No forward-auth middleware on this router, by design. Every path here carries its own, stronger
 # check and none has a browser session to offer:
