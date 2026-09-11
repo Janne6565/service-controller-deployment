@@ -1,0 +1,23 @@
+# Prometheus scrape of the hub, picked up by the in-cluster Grafana Alloy agent and forwarded to
+# Grafana Cloud as job `service-controller/service-controller`.
+#
+# The scrape goes straight to the pod's app port, unauthenticated. That is only acceptable because
+# neither ingress router in overlays/main/ingress.yaml sends /actuator to the backend.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-controller
+  labels:
+    # Grafana Alloy only selects ServiceMonitors that carry `release` and do NOT carry
+    # `app.kubernetes.io/part-of` (see cluster-deployment/infrastructure/grafana-alloy.yaml).
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      # Unique to the backend Service: the frontend and postgres Services carry their own `app`.
+      app: service-controller
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 60s
+      scrapeTimeout: 10s
